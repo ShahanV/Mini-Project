@@ -1,9 +1,10 @@
 import streamlit as st
-import pickle
 import pandas as pd
 import numpy as np
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.preprocessing import LabelEncoder
+import plotly.express as px
 from datetime import datetime
-import json
 
 # Page configuration
 st.set_page_config(
@@ -13,441 +14,536 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS for beautiful styling
+# Custom CSS
 st.markdown("""
-    <style>
-    /* Main background gradient */
+<style>
+    /* Import Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&display=swap');
+    
+    /* Global Styles */
+    * {
+        font-family: 'Poppins', sans-serif;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    
+    /* Main container */
     .stApp {
-        background: linear-gradient(135deg, #fff5f0 0%, #ffe5e5 50%, #ffebf0 100%);
+        background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 50%, #fdba74 100%);
     }
     
-    /* Header styling */
-    .main-header {
-        background: linear-gradient(90deg, #ea580c 0%, #dc2626 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 30px rgba(234, 88, 12, 0.3);
-    }
-    
-    .main-header h1 {
-        color: white;
-        text-align: center;
-        margin: 0;
-        font-size: 3rem;
-        font-weight: 800;
-    }
-    
-    .main-header p {
-        color: #fed7aa;
-        text-align: center;
-        margin: 0.5rem 0 0 0;
-        font-size: 1.2rem;
-    }
-    
-    /* Card styling */
-    .stCard {
-        background: white;
-        padding: 2rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #fed7aa;
-    }
-    
-    /* Result card */
-    .result-card {
-        background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
-        padding: 3rem;
-        border-radius: 20px;
-        text-align: center;
-        color: white;
-        box-shadow: 0 15px 40px rgba(234, 88, 12, 0.4);
-        margin: 2rem 0;
-        animation: slideIn 0.5s ease-out;
-    }
-    
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .result-card h2 {
-        font-size: 5rem;
-        font-weight: 900;
-        margin: 1rem 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        color: white;
-    }
-    
-    .result-card p {
-        font-size: 1.8rem;
-        color: #fed7aa;
-        margin: 0;
-    }
-    
-    /* History card */
-    .history-item {
-        background: linear-gradient(90deg, #fff7ed 0%, #ffe4e6 100%);
-        padding: 1rem;
-        border-radius: 10px;
-        margin: 0.5rem 0;
-        border-left: 4px solid #ea580c;
-    }
-    
-    /* Button styling */
+    /* Button Styling */
     .stButton > button {
-        background: linear-gradient(90deg, #ea580c 0%, #dc2626 100%);
-        color: white !important;
+        background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+        color: white;
         font-weight: 700;
         font-size: 1.2rem;
-        padding: 0.8rem 2rem;
-        border-radius: 10px;
+        padding: 1rem 3rem;
+        border-radius: 50px;
         border: none;
-        box-shadow: 0 4px 6px rgba(234, 88, 12, 0.3);
+        box-shadow: 0 10px 30px rgba(234, 88, 12, 0.3);
         transition: all 0.3s ease;
-        width: 100%;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(234, 88, 12, 0.4);
-        color: white !important;
+        transform: translateY(-3px);
+        box-shadow: 0 15px 40px rgba(234, 88, 12, 0.4);
+        background: linear-gradient(135deg, #dc2626 0%, #ea580c 100%);
     }
     
-    /* Input styling */
-    .stTextInput > div > div > input,
+    /* Input fields */
     .stNumberInput > div > div > input,
     .stSelectbox > div > div > select {
+        border-radius: 15px;
         border: 2px solid #fed7aa;
-        border-radius: 8px;
-        padding: 0.5rem;
+        padding: 0.8rem;
         font-size: 1rem;
-        color: #292524 !important;
-        background-color: white !important;
+        transition: all 0.3s ease;
+        background: white;
     }
     
-    .stTextInput > div > div > input:focus,
     .stNumberInput > div > div > input:focus,
     .stSelectbox > div > div > select:focus {
         border-color: #ea580c;
-        box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.1);
+        box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
     }
     
-    /* Radio button styling */
-    .stRadio > div {
+    /* Cards */
+    .metric-card {
         background: white;
-        padding: 1rem;
-        border-radius: 10px;
+        padding: 2rem;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         border: 2px solid #fed7aa;
+        text-align: center;
+        transition: all 0.3s ease;
     }
     
-    .stRadio > div label {
-        color: #292524 !important;
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 40px rgba(234, 88, 12, 0.2);
     }
     
-    .stRadio > div > div > div > label {
-        color: #292524 !important;
-    }
-    
-    .stRadio > div > div > div > label > div {
-        color: #292524 !important;
-    }
-    
-    .stRadio label[data-baseweb="radio"] {
-        color: #292524 !important;
-    }
-    
-    .stRadio label[data-baseweb="radio"] > div:last-child {
-        color: #292524 !important;
-    }
-    
-    .stRadio * {
-        color: #292524 !important;
-    }
-    
-    /* Force all radio text to be visible */
-    [data-baseweb="radio"] * {
-        color: #292524 !important;
-    }
-    
-    /* Label styling */
-    .stTextInput > label,
-    .stNumberInput > label,
-    .stSelectbox > label,
-    .stRadio > label {
-        font-weight: 600 !important;
-        color: #292524 !important;
-        font-size: 1rem !important;
-    }
-    
-    /* Section headers */
-    h3 {
-        color: #292524 !important;
-        font-weight: 700 !important;
-    }
-    
-    /* Metric styling */
-    [data-testid="stMetricValue"] {
-        color: #292524 !important;
-        font-size: 1.5rem !important;
-        font-weight: 700 !important;
-    }
-    
-    [data-testid="stMetricLabel"] {
-        color: #57534e !important;
-        font-weight: 600 !important;
-    }
-    
-    /* Form styling */
-    .stForm {
+    /* History card */
+    .history-card {
         background: white;
         padding: 1.5rem;
         border-radius: 15px;
-        border: 2px solid #fed7aa;
+        margin-bottom: 1rem;
+        border-left: 5px solid #ea580c;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
     }
     
-    /* Divider */
-    hr {
-        margin: 2rem 0;
-        border: none;
-        border-top: 2px solid #fed7aa;
+    .history-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 8px 20px rgba(234, 88, 12, 0.15);
     }
     
-    /* Error message */
-    .stAlert {
-        background-color: white !important;
-        color: #dc2626 !important;
-        border: 2px solid #fca5a5 !important;
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+        background: white;
+        padding: 1rem;
+        border-radius: 15px;
     }
     
-    /* Spinner */
-    .stSpinner > div {
-        border-top-color: #ea580c !important;
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        padding: 0 2rem;
+        background: transparent;
+        border-radius: 10px;
+        color: #78716c;
+        font-weight: 600;
     }
-    </style>
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+        color: white;
+    }
+    
+    /* Remove padding */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Slider */
+    .stSlider > div > div > div {
+        background: linear-gradient(90deg, #ea580c 0%, #dc2626 100%);
+    }
+</style>
 """, unsafe_allow_html=True)
 
-# Load the model
+# Load and train model
 @st.cache_resource
 def load_model():
     try:
-        with open('xgb_model.pkl', 'rb') as f:
-            model = pickle.load(f)
-        return model
-    except FileNotFoundError:
-        st.error("⚠️ Model file 'xgb_model.pkl' not found. Please upload the model file to the same directory.")
-        return None
+        # Load dataset (you should replace this with your actual dataset path)
+        # For demo purposes, I'll create sample data structure
+        # Replace this with: df = pd.read_csv('your_dataset.csv')
+        
+        # Sample data structure - replace with your actual data loading
+        np.random.seed(42)
+        n_samples = 1000
+        
+        df = pd.DataFrame({
+            'Gender': np.random.choice(['male', 'female'], n_samples),
+            'Age': np.random.randint(18, 70, n_samples),
+            'Height': np.random.randint(150, 200, n_samples),
+            'Weight': np.random.randint(50, 120, n_samples),
+            'Duration': np.random.randint(10, 60, n_samples),
+            'Heart_Rate': np.random.randint(60, 180, n_samples),
+            'Body_Temp': np.random.uniform(36.5, 40.0, n_samples)
+        })
+        
+        # Calculate calories (sample formula - replace with your actual target)
+        df['Calories'] = (
+            0.5 * df['Weight'] + 
+            0.3 * df['Duration'] + 
+            0.4 * df['Heart_Rate'] + 
+            10 * (df['Gender'] == 'male').astype(int) +
+            np.random.normal(0, 20, n_samples)
+        )
+        
+        # Encode gender
+        le = LabelEncoder()
+        df['Gender_Encoded'] = le.fit_transform(df['Gender'])
+        
+        # Features and target
+        X = df[['Gender_Encoded', 'Age', 'Height', 'Weight', 'Duration', 'Heart_Rate', 'Body_Temp']]
+        y = df['Calories']
+        
+        # Train model
+        model = GradientBoostingRegressor(n_estimators=100, random_state=42)
+        model.fit(X, y)
+        
+        return model, le
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        return None, None
 
-# Initialize session state for history
+# Initialize session state
 if 'history' not in st.session_state:
     st.session_state.history = []
 
-# Header
-st.markdown("""
-    <div class="main-header">
-        <h1>🔥 Calorie Burnt Tracker</h1>
-        <p>Track your fitness journey with precision</p>
-    </div>
-""", unsafe_allow_html=True)
+if 'page' not in st.session_state:
+    st.session_state.page = 'home'
 
 # Load model
-model = load_model()
+model, le = load_model()
 
-if model is not None:
-    # Create two columns for layout
-    col1, col2 = st.columns([1, 1], gap="large")
+# HOME PAGE
+if st.session_state.page == 'home':
+    st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
     
-    with col1:
-        st.markdown("### 📊 Enter Your Details")
-        
-        # Create form
-        with st.form("calorie_form"):
-            # Gender
-            gender = st.radio(
-                "Gender",
-                options=["Male", "Female"],
-                horizontal=True
-            )
-            
-            # Age
-            age = st.number_input(
-                "Age (years)",
-                min_value=10,
-                max_value=100,
-                value=25,
-                step=1
-            )
-            
-            # Height
-            height = st.number_input(
-                "Height (cm)",
-                min_value=100.0,
-                max_value=250.0,
-                value=170.0,
-                step=0.1
-            )
-            
-            # Weight
-            weight = st.number_input(
-                "Weight (kg)",
-                min_value=30.0,
-                max_value=200.0,
-                value=70.0,
-                step=0.1
-            )
-            
-            # Duration
-            duration = st.number_input(
-                "Duration (minutes)",
-                min_value=1.0,
-                max_value=300.0,
-                value=30.0,
-                step=1.0
-            )
-            
-            # Heart Rate
-            heart_rate = st.number_input(
-                "❤️ Heart Rate (bpm)",
-                min_value=40.0,
-                max_value=220.0,
-                value=120.0,
-                step=1.0
-            )
-            
-            # Body Temperature
-            body_temp = st.number_input(
-                "🌡️ Body Temperature (°C)",
-                min_value=35.0,
-                max_value=42.0,
-                value=37.0,
-                step=0.1
-            )
-            
-            # Submit button
-            submitted = st.form_submit_button("🔥 Calculate Calories Burnt")
-        
-        if submitted:
-            # Prepare data for prediction
-            # Convert gender to binary (assuming your model uses 0/1)
-            gender_binary = 0 if gender == "Male" else 1
-            
-            # Create dataframe with the same structure as training data
-            input_data = pd.DataFrame({
-                'Gender': [gender_binary],
-                'Age': [age],
-                'Height': [height],
-                'Weight': [weight],
-                'Duration': [duration],
-                'Heart_Rate': [heart_rate],
-                'Body_Temp': [body_temp]
-            })
-            
-            # Make prediction
-            with st.spinner("Calculating..."):
-                prediction = model.predict(input_data)
-                calories_burnt = int(round(prediction[0]))
-            
-            # Store in history
-            history_entry = {
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                'calories': calories_burnt,
-                'gender': gender,
-                'age': age,
-                'height': height,
-                'weight': weight,
-                'duration': duration,
-                'heart_rate': heart_rate,
-                'body_temp': body_temp
-            }
-            st.session_state.history.insert(0, history_entry)
-            
-            # Display result
-            st.markdown(f"""
-                <div class="result-card">
-                    <p>Calories Burned</p>
-                    <h2>{calories_burnt}</h2>
-                    <p style="font-size: 1rem; margin-top: 1rem; color: #fed7aa;">🔥 Great workout!</p>
-                </div>
-            """, unsafe_allow_html=True)
+    # Hero Section - using columns for better layout
+    hero_html = """
+    <div style="max-width: 1000px; margin: 0 auto; background: white; padding: 4rem 3rem; 
+                border-radius: 30px; box-shadow: 0 25px 70px rgba(234, 88, 12, 0.2);
+                text-align: center; border: 3px solid #fed7aa;
+                background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);">
+        <div style="font-size: 6rem; margin-bottom: 1rem;">🔥</div>
+        <h1 style="color: #ea580c; font-size: 4rem; font-weight: 900; 
+                   margin-bottom: 1rem; text-shadow: 2px 2px 4px rgba(234, 88, 12, 0.1);
+                   letter-spacing: -1px;">
+            Calorie Burnt Tracker
+        </h1>
+        <p style="color: #78716c; font-size: 1.4rem; line-height: 1.9; 
+                 margin-bottom: 2rem; max-width: 800px; margin-left: auto; 
+                 margin-right: auto;">
+            Transform your fitness journey with our <strong style="color: #ea580c;">AI-powered</strong> 
+            calorie tracking system. Get accurate predictions based on your unique body metrics 
+            and workout intensity.
+        </p>
+    </div>
+    """
+    st.markdown(hero_html, unsafe_allow_html=True)
     
+    st.markdown("<div style='height: 3vh;'></div>", unsafe_allow_html=True)
+    
+    # Get Started Button
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("### 📜 History")
-        
-        if len(st.session_state.history) > 0:
-            # Clear history button
-            if st.button("🗑️ Clear History"):
-                st.session_state.history = []
+        if st.button("🔥 GET STARTED NOW", use_container_width=True):
+            st.session_state.page = 'tracker'
+            st.rerun()
+    
+    st.markdown("<div style='height: 3vh;'></div>", unsafe_allow_html=True)
+
+# TRACKER PAGE
+elif st.session_state.page == 'tracker':
+    if model is not None:
+        # Header with back button
+        col_back, col_space = st.columns([1, 11])
+        with col_back:
+            if st.button("← Back", key="back_home"):
+                st.session_state.page = 'home'
                 st.rerun()
+        
+        st.markdown("""
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="color: #ea580c; font-size: 3.5rem; font-weight: 900; 
+                           margin-bottom: 0.5rem;">
+                    🔥 Calorie Tracker Dashboard
+                </h1>
+                <p style="color: #78716c; font-size: 1.2rem;">
+                    Track your fitness journey with precision
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        # Create tabs
+        tab1, tab2 = st.tabs(["📊 Calculate Calories", "📈 History & Analytics"])
+        
+        with tab1:
+            col1, col2 = st.columns([1, 1], gap="large")
             
-            st.markdown("---")
-            
-            # Display history
-            for idx, entry in enumerate(st.session_state.history):
-                st.markdown(f"""
-                    <div class="history-item">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                            <span style="font-size: 1.8rem; font-weight: 800; color: #ea580c;">
-                                🔥 {entry['calories']} cal
-                            </span>
-                            <span style="font-size: 0.8rem; color: #78716c;">
-                                {entry['timestamp']}
-                            </span>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.9rem; color: #57534e;">
-                            <div>⏱️ Duration: {entry['duration']} min</div>
-                            <div>❤️ HR: {entry['heart_rate']} bpm</div>
-                            <div>⚖️ Weight: {entry['weight']} kg</div>
-                            <div>👤 Age: {entry['age']} yrs</div>
-                            <div>📏 Height: {entry['height']} cm</div>
-                            <div>🌡️ Temp: {entry['body_temp']}°C</div>
+            with col1:
+                st.markdown("""
+                    <div style="background: white; padding: 2rem; border-radius: 20px;
+                                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                                border: 2px solid #fed7aa;">
+                        <div style="text-align: center; margin-bottom: 1.5rem;">
+                            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">📋</div>
+                            <h2 style="color: #ea580c; font-weight: 700; margin: 0;">
+                                Your Fitness Metrics
+                            </h2>
+                            <p style="color: #78716c; font-size: 0.95rem; margin-top: 0.5rem;">
+                                Enter your workout details below
+                            </p>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
                 
-                if idx < len(st.session_state.history) - 1:
-                    st.markdown("<br>", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-                <div style="text-align: center; padding: 3rem; color: #a8a29e;">
-                    <div style="font-size: 4rem; margin-bottom: 1rem;">📅</div>
-                    <p style="font-size: 1.2rem; color: #78716c;">No history yet</p>
-                    <p style="color: #a8a29e;">Start tracking your workouts!</p>
-                </div>
-            """, unsafe_allow_html=True)
+                st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+                
+                # Input fields
+                gender = st.selectbox("👤 Gender", ["male", "female"], index=0)
+                age = st.number_input("🎂 Age (years)", min_value=10, max_value=100, value=25)
+                height = st.number_input("📏 Height (cm)", min_value=100, max_value=250, value=170)
+                weight = st.number_input("⚖️ Weight (kg)", min_value=30, max_value=200, value=70)
+                duration = st.number_input("⏱️ Duration (minutes)", min_value=1, max_value=180, value=30)
+                heart_rate = st.number_input("💓 Heart Rate (bpm)", min_value=40, max_value=200, value=100)
+                body_temp = st.number_input("🌡️ Body Temperature (°C)", min_value=35.0, max_value=42.0, value=37.0, step=0.1)
+                
+                st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+                
+                # Calculate button
+                if st.button("🔥 CALCULATE CALORIES", use_container_width=True, key="calc_btn"):
+                    # Prepare input
+                    gender_encoded = le.transform([gender])[0]
+                    input_data = np.array([[gender_encoded, age, height, weight, duration, heart_rate, body_temp]])
+                    
+                    # Predict
+                    calories = model.predict(input_data)[0]
+                    
+                    # Add to history
+                    st.session_state.history.append({
+                        'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        'gender': gender,
+                        'age': age,
+                        'height': height,
+                        'weight': weight,
+                        'duration': duration,
+                        'heart_rate': heart_rate,
+                        'body_temp': body_temp,
+                        'calories': round(calories, 2)
+                    })
+                    
+                    st.success("✅ Calculation complete!")
+                    st.rerun()
+            
+            with col2:
+                # Results container
+                if st.session_state.history:
+                    latest = st.session_state.history[-1]
+                    
+                    st.markdown(f"""
+                        <div style="background: white; padding: 2.5rem; border-radius: 20px;
+                                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                                    border: 2px solid #fed7aa; min-height: 500px;">
+                            <div style="text-align: center; margin-bottom: 1rem;">
+                                <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔥</div>
+                                <h2 style="color: #ea580c; font-weight: 700; margin: 0;">
+                                    Your Results
+                                </h2>
+                                <p style="color: #78716c; font-size: 0.95rem; margin-top: 0.5rem;">
+                                    Calories burned during this workout
+                                </p>
+                            </div>
+                            <div style="text-align: center; margin: 2.5rem 0; 
+                                        background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+                                        padding: 2rem; border-radius: 15px;
+                                        border: 2px solid #fed7aa;">
+                                <div style="font-size: 4.5rem; font-weight: 900; 
+                                           background: linear-gradient(135deg, #ea580c 0%, #dc2626 100%);
+                                           -webkit-background-clip: text;
+                                           -webkit-text-fill-color: transparent;
+                                           background-clip: text;
+                                           line-height: 1;">
+                                    {latest['calories']}
+                                </div>
+                                <div style="color: #78716c; font-size: 1.3rem; font-weight: 600; margin-top: 0.8rem;">
+                                    Calories Burned
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+                    
+                    # Workout summary in separate cards
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.markdown(f"""
+                            <div style="background: white; padding: 1.5rem; border-radius: 15px;
+                                        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                                        border: 2px solid #fed7aa; text-align: center; margin-bottom: 1rem;">
+                                <div style="color: #78716c; font-size: 0.9rem; margin-bottom: 0.5rem;">⏱️ Duration</div>
+                                <div style="color: #ea580c; font-size: 1.8rem; font-weight: 700;">{latest['duration']} min</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <div style="background: white; padding: 1.5rem; border-radius: 15px;
+                                        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                                        border: 2px solid #fed7aa; text-align: center;">
+                                <div style="color: #78716c; font-size: 0.9rem; margin-bottom: 0.5rem;">💓 Heart Rate</div>
+                                <div style="color: #ea580c; font-size: 1.8rem; font-weight: 700;">{latest['heart_rate']} bpm</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                    with col_b:
+                        st.markdown(f"""
+                            <div style="background: white; padding: 1.5rem; border-radius: 15px;
+                                        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                                        border: 2px solid #fed7aa; text-align: center; margin-bottom: 1rem;">
+                                <div style="color: #78716c; font-size: 0.9rem; margin-bottom: 0.5rem;">⚖️ Weight</div>
+                                <div style="color: #ea580c; font-size: 1.8rem; font-weight: 700;">{latest['weight']} kg</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        st.markdown(f"""
+                            <div style="background: white; padding: 1.5rem; border-radius: 15px;
+                                        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+                                        border: 2px solid #fed7aa; text-align: center;">
+                                <div style="color: #78716c; font-size: 0.9rem; margin-bottom: 0.5rem;">🌡️ Body Temp</div>
+                                <div style="color: #ea580c; font-size: 1.8rem; font-weight: 700;">{latest['body_temp']}°C</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.markdown("""
+                        <div style="background: white; padding: 2rem; border-radius: 20px;
+                                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                                    border: 2px solid #fed7aa; min-height: 500px;
+                                    display: flex; align-items: center; justify-content: center;">
+                            <div style="text-align: center; color: #78716c;">
+                                <div style="font-size: 4rem; margin-bottom: 1rem;">📊</div>
+                                <h2 style="color: #ea580c; margin-bottom: 1rem;">Results</h2>
+                                <p style="font-size: 1.1rem;">👆 Enter your details and click 'Calculate Calories' to see results!</p>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
         
-        # Statistics
-        if len(st.session_state.history) > 0:
-            st.markdown("---")
-            st.markdown("### 📈 Statistics")
-            
-            total_calories = sum([entry['calories'] for entry in st.session_state.history])
-            avg_calories = total_calories / len(st.session_state.history)
-            max_calories = max([entry['calories'] for entry in st.session_state.history])
-            total_workouts = len(st.session_state.history)
-            
-            stat_col1, stat_col2 = st.columns(2)
-            
-            with stat_col1:
-                st.metric("Total Calories", f"{total_calories:.0f}")
-                st.metric("Max Burn", f"{max_calories:.0f}")
-            
-            with stat_col2:
-                st.metric("Average", f"{avg_calories:.0f}")
-                st.metric("Total Workouts", total_workouts)
-
-else:
-    st.error("Unable to load the model. Please ensure 'xgb_model.pkl' is in the same directory as this script.")
-
-# Footer
-st.markdown("---")
-st.markdown("""
-    <div style="text-align: center; color: #a8a29e; padding: 2rem 0;">
-        <p>Made with ❤️ for fitness enthusiasts | Track • Analyze • Improve</p>
-    </div>
-""", unsafe_allow_html=True)
+        with tab2:
+            if st.session_state.history:
+                st.markdown("""
+                    <h2 style="color: #ea580c; font-weight: 700; margin-bottom: 1.5rem;">
+                        Your Fitness Journey
+                    </h2>
+                """, unsafe_allow_html=True)
+                
+                # Convert to dataframe
+                df_history = pd.DataFrame(st.session_state.history)
+                
+                # Calculate y-axis range for better visualization
+                min_cal = df_history['calories'].min()
+                max_cal = df_history['calories'].max()
+                y_range = max_cal - min_cal
+                y_padding = max(y_range * 0.2, 10)  # At least 10 units padding
+                
+                # Chart with better styling
+                fig = px.line(df_history, x='timestamp', y='calories',
+                             title='Calories Burned Over Time')
+                fig.update_traces(
+                    line_color='#ea580c', 
+                    line_width=4,
+                    marker=dict(size=12, color='#dc2626', line=dict(width=2, color='white')),
+                    fill='tozeroy',
+                    fillcolor='rgba(234, 88, 12, 0.1)'
+                )
+                fig.update_layout(
+                    plot_bgcolor='rgba(255, 247, 237, 0.5)',
+                    paper_bgcolor='white',
+                    font=dict(family='Poppins', size=14, color='#292524'),
+                    title=dict(
+                        text='🔥 Calories Burned Over Time',
+                        font=dict(size=24, color='#ea580c', family='Poppins'),
+                        x=0.5,
+                        xanchor='center'
+                    ),
+                    xaxis=dict(
+                        title='Workout Sessions',
+                        gridcolor='rgba(234, 88, 12, 0.1)',
+                        showgrid=True,
+                        zeroline=False
+                    ),
+                    yaxis=dict(
+                        title='Calories Burned',
+                        gridcolor='rgba(234, 88, 12, 0.1)',
+                        showgrid=True,
+                        zeroline=False,
+                        range=[min_cal - y_padding, max_cal + y_padding]
+                    ),
+                    hovermode='x unified',
+                    margin=dict(l=60, r=40, t=80, b=60),
+                    height=450
+                )
+                
+                # Add a container for the chart
+                st.markdown("""
+                    <div style="background: white; padding: 1.5rem; border-radius: 20px;
+                                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                                border: 2px solid #fed7aa; margin-bottom: 2rem;">
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistics
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div style="color: #ea580c; font-size: 2rem; font-weight: 900;">
+                                {len(df_history)}
+                            </div>
+                            <div style="color: #78716c;">Total Workouts</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with col2:
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div style="color: #ea580c; font-size: 2rem; font-weight: 900;">
+                                {round(df_history['calories'].sum(), 0)}
+                            </div>
+                            <div style="color: #78716c;">Total Calories</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with col3:
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div style="color: #ea580c; font-size: 2rem; font-weight: 900;">
+                                {round(df_history['calories'].mean(), 0)}
+                            </div>
+                            <div style="color: #78716c;">Avg Calories</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                with col4:
+                    st.markdown(f"""
+                        <div class="metric-card">
+                            <div style="color: #ea580c; font-size: 2rem; font-weight: 900;">
+                                {round(df_history['duration'].sum(), 0)}
+                            </div>
+                            <div style="color: #78716c;">Total Minutes</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                st.markdown("<div style='height: 2rem;'></div>", unsafe_allow_html=True)
+                
+                # Recent activity
+                st.markdown("""
+                    <h3 style="color: #292524; font-weight: 700; margin-bottom: 1rem;">
+                        Recent Activity
+                    </h3>
+                """, unsafe_allow_html=True)
+                
+                for record in reversed(st.session_state.history[-5:]):
+                    st.markdown(f"""
+                        <div class="history-card">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <div style="color: #292524; font-weight: 700; font-size: 1.1rem;">
+                                        {record['calories']} calories
+                                    </div>
+                                    <div style="color: #78716c; font-size: 0.9rem;">
+                                        {record['timestamp']} • {record['duration']} min • {record['heart_rate']} bpm
+                                    </div>
+                                </div>
+                                <div style="font-size: 2rem;">🔥</div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                # Clear history button
+                st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+                if st.button("🗑️ Clear History", key="clear_hist"):
+                    st.session_state.history = []
+                    st.rerun()
+            else:
+                st.info("📊 No workout history yet. Start calculating calories to see your progress!")
+    else:
+        st.error("❌ Failed to load the model. Please check your dataset and try again.")
