@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Flame, Activity, User, Lock, TrendingUp, Calendar, Clock } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://mini-project-rijs.onrender.com';
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload }) => {
