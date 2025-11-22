@@ -40,7 +40,7 @@ export default function CalorieBurntTracker() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/history/${loggedInUser}`);
+      const response = await fetch(`${API_URL}/api/history/${loggedInUser}`);
       const data = await response.json();
       if (data.success) setHistory(data.history);
     } catch (error) {
@@ -50,7 +50,7 @@ export default function CalorieBurntTracker() {
 
   const fetchStatistics = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/statistics/${loggedInUser}`);
+      const response = await fetch(`${API_URL}/api/statistics/${loggedInUser}`);
       const data = await response.json();
       if (data.success) setStatistics(data.statistics);
     } catch (error) {
@@ -67,7 +67,7 @@ export default function CalorieBurntTracker() {
 
   const handleAuth = async () => {
     setLoading(true);
-    const endpoint = isLogin ? '/login' : '/register';
+    const endpoint = isLogin ? '/api/login' : '/api/register';
     
     try {
       const response = await fetch(`${API_URL}${endpoint}`, {
@@ -86,7 +86,7 @@ export default function CalorieBurntTracker() {
         alert(data.message);
       }
     } catch (error) {
-      alert('Connection error. Make sure backend is running on port 5000');
+      alert('Connection error. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ export default function CalorieBurntTracker() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/predict`, {
+      const response = await fetch(`${API_URL}/api/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, username: loggedInUser })
