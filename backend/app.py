@@ -59,7 +59,7 @@ def predict():
         username = data.get('username')
         
         # Extract features
-        gender = 1 if data.get('gender') == 'male' else 0
+        gender = 0 if data.get('gender') == 'male' else 1
         age = float(data.get('age'))
         height = float(data.get('height'))
         weight = float(data.get('weight'))

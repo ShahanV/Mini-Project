@@ -2,16 +2,29 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Flame, Activity, User, Lock, TrendingUp, Calendar, Clock } from 'lucide-react';
 
-const API_URL = 'https://mini-project-rijs.onrender.com';
+const API_URL = 'http://localhost:5000/api';
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload }) => {
   if (active && payload && payload.length) {
+    const data = payload[0].payload;
     return (
-      <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-        <p className="text-sm font-semibold text-gray-800">
-          {payload[0].name}: {payload[0].value}
-        </p>
+      <div className="bg-white p-4 border-2 border-orange-500 rounded-xl shadow-xl">
+        <p className="text-xs text-gray-500 mb-2">{data.date}</p>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-orange-600">
+            🔥 Calories: {data.calories_burnt} kcal
+          </p>
+          <p className="text-sm text-gray-700">
+            ⏱️ Duration: {data.duration} min
+          </p>
+          <p className="text-sm text-gray-700">
+            💓 Heart Rate: {data.heart_rate} bpm
+          </p>
+          <p className="text-sm text-gray-700">
+            🌡️ Body Temp: {data.body_temp}°C
+          </p>
+        </div>
       </div>
     );
   }
@@ -40,7 +53,7 @@ export default function CalorieBurntTracker() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/history/${loggedInUser}`);
+      const response = await fetch(`${API_URL}/history/${loggedInUser}`);
       const data = await response.json();
       if (data.success) setHistory(data.history);
     } catch (error) {
@@ -50,7 +63,7 @@ export default function CalorieBurntTracker() {
 
   const fetchStatistics = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/statistics/${loggedInUser}`);
+      const response = await fetch(`${API_URL}/statistics/${loggedInUser}`);
       const data = await response.json();
       if (data.success) setStatistics(data.statistics);
     } catch (error) {
@@ -67,7 +80,7 @@ export default function CalorieBurntTracker() {
 
   const handleAuth = async () => {
     setLoading(true);
-    const endpoint = isLogin ? '/api/login' : '/api/register';
+    const endpoint = isLogin ? '/login' : '/register';
     
     try {
       const response = await fetch(`${API_URL}${endpoint}`, {
@@ -86,7 +99,7 @@ export default function CalorieBurntTracker() {
         alert(data.message);
       }
     } catch (error) {
-      alert('Connection error. Please try again later.');
+      alert('Connection error. Make sure backend is running on port 5000');
     } finally {
       setLoading(false);
     }
@@ -96,7 +109,7 @@ export default function CalorieBurntTracker() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${API_URL}/api/predict`, {
+      const response = await fetch(`${API_URL}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, username: loggedInUser })
@@ -106,7 +119,7 @@ export default function CalorieBurntTracker() {
       
       if (data.success) {
         setPrediction(data.calories_burnt);
-        setTimeout(() => setPrediction(null), 5000);
+        // Stays visible until user makes another prediction
       } else {
         alert(data.message);
       }
@@ -359,7 +372,13 @@ export default function CalorieBurntTracker() {
 
           {/* Result Display */}
           {prediction && (
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-xl p-8 text-white animate-pulse">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-2xl shadow-xl p-8 text-white relative">
+              <button
+                onClick={() => setPrediction(null)}
+                className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 rounded-full p-2 transition-colors"
+              >
+                <span className="text-xl">×</span>
+              </button>
               <div className="text-center">
                 <Flame className="w-16 h-16 mx-auto mb-4" />
                 <h3 className="text-2xl font-semibold mb-2">Calories Burnt</h3>
@@ -421,34 +440,66 @@ export default function CalorieBurntTracker() {
 
           {/* Charts */}
           {history.length > 0 && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Calories Over Time</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={history.slice(-10)}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="id" />
-                      <YAxis />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Line type="monotone" dataKey="calories_burnt" stroke="#f97316" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
+            <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-bold text-gray-800">📈 Calorie Burning Progress</h3>
+                <div className="text-sm text-gray-500">
+                  Last {Math.min(history.length, 10)} workouts
                 </div>
               </div>
+              
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={history.slice(-10)} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="colorCalories" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#f97316" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis 
+                      dataKey="id" 
+                      label={{ value: 'Workout #', position: 'insideBottom', offset: -5 }}
+                      tick={{ fill: '#666' }}
+                    />
+                    <YAxis 
+                      label={{ value: 'Calories (kcal)', angle: -90, position: 'insideLeft' }}
+                      tick={{ fill: '#666' }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="calories_burnt" 
+                      stroke="#f97316" 
+                      strokeWidth={3}
+                      dot={{ fill: '#f97316', r: 5 }}
+                      activeDot={{ r: 7, fill: '#ea580c' }}
+                      fill="url(#colorCalories)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
 
-              <div className="bg-white rounded-xl shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Duration vs Calories</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={history.slice(-10)}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="id" />
-                      <YAxis />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="duration" fill="#f97316" />
-                    </BarChart>
-                  </ResponsiveContainer>
+              {/* Summary Stats Below Chart */}
+              <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-orange-600">
+                    {history.length > 0 ? Math.max(...history.map(h => h.calories_burnt)) : 0}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">Peak Calories</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-red-600">
+                    {history.length > 0 ? (history.reduce((sum, h) => sum + h.calories_burnt, 0) / history.length).toFixed(0) : 0}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">Average Calories</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-pink-600">
+                    {history.reduce((sum, h) => sum + h.calories_burnt, 0).toFixed(0)}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">Total Burned</p>
                 </div>
               </div>
             </div>
