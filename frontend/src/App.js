@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Flame, Activity, User, Lock, TrendingUp, Calendar, Clock } from 'lucide-react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://mini-project-rijs.onrender.com/api';
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload }) => {
@@ -99,7 +99,7 @@ export default function CalorieBurntTracker() {
         alert(data.message);
       }
     } catch (error) {
-      alert('Connection error. Make sure backend is running on port 5000');
+      alert('Cannot connect to server. Please try again later.');
     } finally {
       setLoading(false);
     }
